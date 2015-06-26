@@ -129,7 +129,7 @@ function bot {
 	echo "$message" | grep -i "^/help$";
 	if [ $? -eq 0 ];
 	then
-		tmp="@BanBOT by @ShotokanZH\n";
+		tmp="@hBanBOT by @ShotokanZH\n";
 		tmp+="v1.3 bot api!!\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
