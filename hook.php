@@ -1,6 +1,8 @@
 <?php
 $log_file = "../hook.log";
 
+//149.154.167.0 - 149.154.167.255 is an IP address range owned by Telegram Messenger
+
 if (!preg_match('/^(149\.154\.167\.[12]?[0-9]{1,2})$/',$_SERVER['REMOTE_ADDR']))
         die("Nope.");
 
