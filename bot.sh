@@ -14,7 +14,7 @@ then
 	mkfifo "$log_fifo";
 fi;
 
-mlist=(nmap nerdz);
+mlist=(nmap nerdz xkcd);
 declare -A Amutex;
 for i in ${mlist[@]};
 do
@@ -64,9 +64,10 @@ function raw_telegram {
 function send_photo {
 	dest="$1";
 	file="$2";
+	caption="$3";
 	apiurl="https://api.telegram.org/bot${bot_token}/";
 	echo "[>+]RAW sendPhoto?chat_id=${dest} (@${file})" >&2;
-	curl -s "${apiurl}sendPhoto?chat_id=${dest}&photo" -F photo=@${file};
+	curl -s "${apiurl}sendPhoto?" -F "chat_id=${dest}" -F "caption=${caption}" -F photo=@"${file}" > /dev/null;
 }
 
 function send_telegram {
@@ -130,14 +131,15 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.3 bot api!!\n\n";
+		tmp+="v1.4 xkcd!!\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
 		tmp+="/random - Sarcastic responses\n";
 		tmp+="/isnerdzup - Checks www.nerdz.eu\n";
 		tmp+="/ping IP - Pings the IP\n";
-		tmp+="/whoami - print user's infos (no phone)\n";
+		tmp+="/whoami - Print user infos (no phone)\n";
+		tmp+="/xkcd - Random xkcd\n";
 		tmp+="\n"; #separator
 		tmp+="Note: This bot loves boobs and hates RBUY.\n";
 		tmp+="Note2: This bot is multithreaded.\n";
@@ -220,6 +222,40 @@ function bot {
 		fi;
 		break;
 	fi;
+	echo "$message" | grep -i "^/xkcd$"
+	if [ $? -eq 0 ];
+	then
+		tmp=$(get_mutex ${Amutex[xkcd]});
+		if [ "$tmp" = "busy" ];
+		then
+			send_telegram "$dest" "I'm busy..";
+		else
+			max=$(curl -s "http://xkcd.com/info.0.json" | jq -c -r -M ".num" | grep -v "null");
+			if [ $? -eq 0 ];
+			then
+				echo -n "[>]Max: ${max} ";
+				rand_img=$(( 1 + ( RANDOM % ( max - 1 ) ) ));
+				echo "Rand: ${rand_img}";
+				data=$(curl -s "http://xkcd.com/${rand_img}/info.0.json" | jq -r -M "[.img,.safe_title]" | grep -v "null");
+				if [ $? -eq 0 ];
+				then
+					tmpf=$(mktemp --suffix ".tbot.png");
+					url=$(echo "$data" | jq -c -r -M ".[0]");
+					title=$(echo "$data" | jq -c -r -M ".[1]");
+					curl -s "${url}" > "${tmpf}";
+					du -h "${tmpf}";
+					send_photo "$dest" "$tmpf" "[${rand_img}/${max}] $title";
+					rm $tmpf;
+				else
+					send_telegram "$dest" "Error while retrieving comic #${rand_img} data";
+				fi;
+			else
+				send_telegram "$dest" "Error while retrieving max id";
+			fi;
+			release_mutex ${Amutex[xkcd]};
+		fi;
+		break;
+	fi;
 	#echo -n "$message" | hd; #debug
 	echo "No commands.";
 }
@@ -230,7 +266,7 @@ then
 	exit 1;
 fi;
 
-while true; do sleep 999; done > "$log_fifo" & #keeps the log file open
+while true; do sleep 999; done > "$log_fifo" &
 
 while read -r line;
 do
