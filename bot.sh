@@ -236,11 +236,11 @@ function bot {
 				echo -n "[>]Max: ${max} ";
 				rand_img=$(( 1 + ( RANDOM % ( max - 1 ) ) ));
 				echo "Rand: ${rand_img}";
-				data=$(curl -s "http://xkcd.com/${rand_img}/info.0.json" | jq -r -M "[.img,.safe_title]" | grep -v "null");
+				data=$(curl -s "http://xkcd.com/${rand_img}/info.0.json" | jq -r -M "[.img,.safe_title]");
+				url=$(echo "$data" | jq -c -r -M ".[0]" | grep -v "^null$");
 				if [ $? -eq 0 ];
 				then
 					tmpf=$(mktemp --suffix ".tbot.png");
-					url=$(echo "$data" | jq -c -r -M ".[0]");
 					title=$(echo "$data" | jq -c -r -M ".[1]");
 					curl -s "${url}" > "${tmpf}";
 					du -h "${tmpf}";
