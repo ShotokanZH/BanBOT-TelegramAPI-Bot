@@ -2,14 +2,14 @@
 Boobs are softer with APIs.
 
 #How to make it work:
-- move hook.php to a webserver (HTTPS)
-- edit in bot.sh & hook.php the (relative?) path of the "pipe" log (file.log?) (it is automatically created)
-- add in bot.sh the token (bot_token variable)
+- edit in bot.sh & update.sh the (relative?) path of the "pipe" log (file.log?) (it is automatically created)
+- write the token in token.txt
 - run: `chmod +x ./bot.sh`
+- run: `chmod +x ./update.sh`
 - ...and finally: `./bot.sh` (in tmux?)
-- Register hook.php using Telegram API webHook method:
- - `curl -s "https://api.telegram.org/bot${token}/webHook?url=https://example.com/hook.php"`
- - (Replacing ${token} with your bot token and https://example.com/hook.php with your HTTPS url linking hook.php)
+- If you were using webHook unregister it by calling API webHook method with no url:
+ - `curl -s "https://api.telegram.org/bot${token}/webHook?url="`
+ - (Replacing ${token} with your bot token)
 - Enjoy.
 
 Note: This bot uses the official APIs.
