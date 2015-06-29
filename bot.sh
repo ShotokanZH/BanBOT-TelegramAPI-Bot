@@ -4,7 +4,7 @@
 #BANBOT IS HERE!
 #
 
-bot_token=$(cat token.txt | sed "s/\n//g");
+bot_token=$(cat token.txt);
 log_fifo="hook.log";
 #don't edit below!!
 export bot_token;
@@ -16,14 +16,14 @@ fi;
 
 mlist=(nmap nerdz xkcd);
 declare -A Amutex;
-for i in ${mlist[@]};
+for i in "${mlist[@]}";
 do
 	Amutex[$i]=$(mktemp --suffix ".tbot");
 done;
 export Amutex;
 
 function clear_mutex {
-	for i in ${Amutex[@]};
+	for i in "${Amutex[@]}";
 	do
 		rm "$i";
 		echo "[i]Removed mutex $i";
@@ -33,15 +33,15 @@ function clear_mutex {
 ./update.sh &
 update_pid=$!;
 
-trap "exit $?" INT TERM
-trap "echo ''; clear_mutex; kill ${update_pid}" EXIT
+trap 'exit $?' INT TERM
+trap 'echo ""; clear_mutex; kill ${update_pid}' EXIT
 
 function get_mutex {
 	mutex=$1;
-	tmp=$(cat $mutex);
+	tmp=$(cat "$mutex");
 	if [ "$tmp" = "" ];
 	then
-		echo "1" >$mutex;
+		echo "1" >"$mutex";
 		echo "[i]Created mutex $mutex" >&2;
 		echo "free";
 	else
@@ -53,7 +53,7 @@ function get_mutex {
 function release_mutex {
 	mutex=$1;
 	echo "[i]Releasing mutex $mutex";
-	echo -n "" >$mutex;
+	echo -n "" >"$mutex";
 }
 
 function raw_telegram {
@@ -149,59 +149,59 @@ function bot {
 		tmp+="Note3: This bot knows nerdz.\n";
 		tmp=$(echo -e "${tmp}");
 		send_telegram "$dest" "${tmp}";
-		break;
+		return;
 	fi;
 	echo "$message" | grep -i "^/time$";
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "$(date)";
-		break;
+		return;
 	fi;
 	echo "$message" | grep -i "^/random$";
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "$(fortune -s)";
-		break;
+		return;
 	fi;
 	echo "$message" | grep -i "^/isnerdzup$";
 	if [ $? -eq 0 ];
 	then
-		tmp=$(get_mutex ${Amutex[nmap]});
+		tmp=$(get_mutex "${Amutex[nmap]}");
 		if [ "$tmp" = "busy" ];
 		then
 			send_telegram "$dest" "I'm busy..";
 		else
 			tmp=$(nmap -p 820 www.nerdz.eu| grep --color=never "hosts\? up");
 			send_telegram "$dest" "${tmp}";
-			release_mutex ${Amutex[nmap]};
+			release_mutex "${Amutex[nmap]}";
 		fi;
-		break;
+		return;
 	fi;
 	echo "$message" | grep -iP "^/ping ([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$";
 	if [ $? -eq 0 ];
 	then
 		ip=$(echo "$message" | grep --color=never -ioP "^/ping \K([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$");
-		tmp=$(ping -c 1 $ip);
+		tmp=$(ping -c 1 "$ip");
 		send_telegram "$dest" "$tmp";
-		break;
+		return;
 	fi;
 	echo "$message" | grep -iP "^/ping( |$)";
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "Usage: /ping IP (no hostname)";
-		break;
+		return;
 	fi;
 	echo "$message" | grep -i "^/whoami$";
 	if [ $? -eq 0 ];
 	then
 		tmp=$(echo "$packet" | jq -M "[.message.from.id,.message.from.first_name,.message.from.last_name,.message.from.username]");
 		send_telegram "$dest" "$tmp";
-		break;
+		return;
 	fi;
 	echo "$message" | grep -iP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+";
 	if [ $? -eq 0 ];
 	then
-		tmp=$(get_mutex ${Amutex[nerdz]});
+		tmp=$(get_mutex "${Amutex[nerdz]}");
 		if [ "$tmp" = "busy" ];
 		then
 			send_telegram "$dest" "I'm busy..";
@@ -219,16 +219,16 @@ function bot {
 				then
 					send_telegram "$dest" "Error while retrieving $tmp";
 				fi;
-				rm $tmpf;
+				rm "$tmpf";
 			fi;
-			release_mutex ${Amutex[nerdz]};
+			release_mutex "${Amutex[nerdz]}";
 		fi;
-		break;
+		return;
 	fi;
 	echo "$message" | grep -iP "^/xkcd( \d+)?$"
 	if [ $? -eq 0 ];
 	then
-		tmp=$(get_mutex ${Amutex[xkcd]});
+		tmp=$(get_mutex "${Amutex[xkcd]}");
 		if [ "$tmp" = "busy" ];
 		then
 			send_telegram "$dest" "I'm busy..";
@@ -256,16 +256,16 @@ function bot {
 					du -h "${tmpf}";
 					send_photo "$dest" "$tmpf" "[${id_img}/${max}] ${title}";
 					send_telegram "$dest" "<xkcd>${alt}</xkcd>";
-					rm $tmpf;
+					rm "$tmpf";
 				else
 					send_telegram "$dest" "Error while retrieving comic #${id_img} data";
 				fi;
 			else
 				send_telegram "$dest" "Error while retrieving max id";
 			fi;
-			release_mutex ${Amutex[xkcd]};
+			release_mutex "${Amutex[xkcd]}";
 		fi;
-		break;
+		return;
 	fi;
 	#echo -n "$message" | hd; #debug
 	echo "No commands.";
@@ -284,11 +284,11 @@ do
 	#echo $line; #debug
 	packet=$(echo "$line" | jq -c -r -M "[.message.from.id,.message.chat.id,.message.text]");
 	echo "";
-	echo $packet;
-	message=$(echo $packet | jq -r -M ".[2]" | sed 's/\\n/ /g' | tr "\n" " " | sed -e 's/[[:space:]]*$//');
+	echo "$packet";
+	message=$(echo "$packet" | jq -r -M ".[2]" | sed 's/\\n/ /g' | tr "\n" " " | sed -e 's/[[:space:]]*$//');
 	echo "Message: $message";
-	user=$(echo $packet | jq -r -M ".[0]");
-	chat=$(echo $packet | jq -r -M ".[1]");
+	user=$(echo "$packet" | jq -r -M ".[0]");
+	chat=$(echo "$packet" | jq -r -M ".[1]");
 	echo -n "User: $user";
 	if [ "$user" = "$chat" ];
 	then
@@ -300,4 +300,4 @@ do
 	fi;
 	#L0 spawns L1 thread
 	bot "$chat" "$message" "$user" "$line"&
-done < "$log_fifo";
+done < "$log_fifo"; 
