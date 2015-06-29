@@ -15,7 +15,7 @@ do
 		if [ "$ok" = "true" ];
 		then
 			x=0;
-			result=$(echo "${data}" | jq -c -r -M ".result" | grep -vP "^\[\]$");
+			echo "${data}" | jq -c -r -M ".result" | grep -vP "^\[\]$" >/dev/null;
 			if [ $? -eq 0 ];
 			then
 				tmp=true;
