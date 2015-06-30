@@ -14,6 +14,8 @@ then
 	mkfifo "$log_fifo";
 fi;
 
+while true; do sleep 999; done > "$log_fifo" &
+
 mlist=(nmap nerdz xkcd);
 declare -A Amutex;
 for i in "${mlist[@]}";
@@ -276,8 +278,6 @@ then
 	echo "No jq command found in \$PATH";
 	exit 1;
 fi;
-
-while true; do sleep 999; done > "$log_fifo" &
 
 bot_self=$(raw_telegram "getMe");
 if [ "$(echo "$bot_self" | jq -c -r -M ".ok")" = "false" ];
