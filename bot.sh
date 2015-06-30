@@ -193,7 +193,7 @@ function bot {
 		send_telegram "$dest" "Usage: /ping IP (no hostname)";
 		return;
 	fi;
-	echo "$message" | grep -i "^/whoami(@${bot_username})?$";
+	echo "$message" | grep -iP "^/whoami(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		tmp=$(echo "$packet" | jq -M "[.message.from.id,.message.from.first_name,.message.from.last_name,.message.from.username]");
