@@ -130,7 +130,7 @@ function bot {
 	#After the (un)?successful execution of the command, L1 thread will die without running other commands.
 	#No L2 threads are created.
 	#
-	echo "$message" | grep -i "^/help$";
+	echo "$message" | grep -iP "^/help(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
@@ -151,19 +151,19 @@ function bot {
 		send_telegram "$dest" "${tmp}";
 		return;
 	fi;
-	echo "$message" | grep -i "^/time$";
+	echo "$message" | grep -iP "^/time(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "$(date)";
 		return;
 	fi;
-	echo "$message" | grep -i "^/random$";
+	echo "$message" | grep -iP "^/random(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "$(fortune -s)";
 		return;
 	fi;
-	echo "$message" | grep -i "^/isnerdzup$";
+	echo "$message" | grep -iP "^/isnerdzup(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		tmp=$(get_mutex "${Amutex[nmap]}");
@@ -177,21 +177,21 @@ function bot {
 		fi;
 		return;
 	fi;
-	echo "$message" | grep -iP "^/ping ([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$";
+	echo "$message" | grep -iP "^/ping(@${bot_username})? ([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$";
 	if [ $? -eq 0 ];
 	then
-		ip=$(echo "$message" | grep --color=never -ioP "^/ping \K([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$");
+		ip=$(echo "$message" | grep --color=never -ioP "([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$");
 		tmp=$(ping -c 1 "$ip");
 		send_telegram "$dest" "$tmp";
 		return;
 	fi;
-	echo "$message" | grep -iP "^/ping( |$)";
+	echo "$message" | grep -iP "^/ping(@${bot_username})?( |$)";
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "Usage: /ping IP (no hostname)";
 		return;
 	fi;
-	echo "$message" | grep -i "^/whoami$";
+	echo "$message" | grep -i "^/whoami(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		tmp=$(echo "$packet" | jq -M "[.message.from.id,.message.from.first_name,.message.from.last_name,.message.from.username]");
@@ -225,7 +225,7 @@ function bot {
 		fi;
 		return;
 	fi;
-	echo "$message" | grep -iP "^/xkcd( \d+)?$"
+	echo "$message" | grep -iP "^/xkcd(@${bot_username})?( \d+)?$"
 	if [ $? -eq 0 ];
 	then
 		tmp=$(get_mutex "${Amutex[xkcd]}");
@@ -237,7 +237,7 @@ function bot {
 			if [ $? -eq 0 ];
 			then
 				echo -n "[>]Max: ${max} ";
-				tmp=$(echo "$message" | grep -ioP --color=never "^/xkcd \K\d+$");
+				tmp=$(echo "$message" | grep -ioP --color=never "\d+$");
 				if [ $? -eq 0 ] && [ "$tmp" -le "$max" ] && [ "$tmp" -ge "1" ];
 				then
 					id_img=$tmp;
@@ -279,6 +279,16 @@ fi;
 
 while true; do sleep 999; done > "$log_fifo" &
 
+bot_self=$(raw_telegram "getMe");
+if [ "$(echo "$bot_self" | jq -c -r -M ".ok")" = "false" ];
+then
+	echo "Something went wrong during 'getMe'..";
+	exit 1;
+fi;
+bot_username=$(echo "$bot_self" | jq -c -r -M ".result.username");
+export bot_username;
+echo "Bot: @${bot_username}";
+
 while read -r line;
 do
 	#echo $line; #debug
@@ -300,4 +310,4 @@ do
 	fi;
 	#L0 spawns L1 thread
 	bot "$chat" "$message" "$user" "$line"&
-done < "$log_fifo"; 
+done < "$log_fifo";
