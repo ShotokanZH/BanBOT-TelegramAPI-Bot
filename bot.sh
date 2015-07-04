@@ -32,7 +32,7 @@ function clear_mutex {
 	done;
 }
 
-./update.sh &
+./update.sh 2>/dev/null &
 update_pid=$!;
 
 trap 'exit $?' INT TERM
@@ -78,7 +78,12 @@ function send_photo {
 function send_telegram {
 	dest=$1;
 	message=$2;
-	raw_telegram "sendMessage?chat_id=$dest&" "text=$message" >/dev/null
+	dpreview=$3;
+	if [ "$dpreview" != "true" ]
+	then
+		dpreview="false";
+	fi;
+	raw_telegram "sendMessage?chat_id=${dest}&disable_web_page_preview=${dpreview}" "text=$message" >/dev/null
 }
 
 function bot {
@@ -142,7 +147,7 @@ function bot {
 		tmp+="/time - Return current GMT+1(+DST) time\n";
 		tmp+="/random - Sarcastic responses\n";
 		tmp+="/isnerdzup - Checks www.nerdz.eu\n";
-		tmp+="/ping IP - Pings the IP\n";
+		tmp+="/ping IP - Pings the IP or hostname\n";
 		tmp+="/whoami - Print user infos (no phone)\n";
 		tmp+="/xkcd - Random xkcd or specified id\n";
 		tmp+="\n"; #separator
@@ -179,18 +184,37 @@ function bot {
 		fi;
 		return;
 	fi;
-	echo "$message" | grep -iP "^/ping(@${bot_username})? ([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$";
+	echo "$message" | grep -iP "^/ping(@${bot_username})? (([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}|([a-zA-Z0-9._-]+\.)[a-z-A-Z]{2,11})$";
 	if [ $? -eq 0 ];
 	then
 		ip=$(echo "$message" | grep --color=never -ioP "([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$");
-		tmp=$(ping -c 1 "$ip");
-		send_telegram "$dest" "$tmp";
+		tmp="";
+		if [ "$ip" = "" ];
+		then
+			if [ "$(which tor-resolve)" = "" ];
+			then
+				echo "[-]tor-resolve not found in path (tor suite).";
+				return;
+			else
+				domain=$(echo "$message" | grep --color=never -ioP "([a-zA-Z0-9._-]+\.)[a-z-A-Z]{2,11}$");
+				ip=$(tor-resolve "$domain" 2>/dev/null);
+				if [ "$ip" = "" ];
+				then
+					send_telegram "$dest" "No IP found for $domain" "true";
+					return;
+				fi;
+				newline=$'\n';
+				tmp="${domain} => ${ip}${newline}";
+			fi;
+		fi;
+		tmp+=$(ping -c 1 "$ip");
+		send_telegram "$dest" "$tmp" "true";
 		return;
 	fi;
 	echo "$message" | grep -iP "^/ping(@${bot_username})?( |$)";
 	if [ $? -eq 0 ];
 	then
-		send_telegram "$dest" "Usage: /ping IP (no hostname)";
+		send_telegram "$dest" "Usage: /ping IP (or hostname)";
 		return;
 	fi;
 	echo "$message" | grep -iP "^/whoami(@${bot_username})?$";
