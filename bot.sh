@@ -59,31 +59,41 @@ function release_mutex {
 }
 
 function raw_telegram {
-	func="$1";
-	packet="$2";
-	echo "[>]RAW: $func$packet" >&2; #console only
+	echo "[>]RAW: $*" >&2; #console only
 	apiurl="https://api.telegram.org/bot${bot_token}/";
-	curl -G -s "$apiurl$func" --data-urlencode "$packet";
+	tmpcurl="";
+	x=true;
+	for i in "$@";
+	do
+		i=${i//\"/\\\"}; #addslash
+		if [ "$x" = "true" ];
+		then
+			x=false;
+			tmpcurl+="curl -s \"${apiurl}${i}\"";
+		else
+			tmpcurl+=" -F \"${i}\"";
+		fi;
+	done;
+	#echo "${tmpcurl}" >&2; #debug
+	eval "${tmpcurl}";
 }
 
 function send_photo {
 	dest="$1";
 	file="$2";
 	caption="$3";
-	apiurl="https://api.telegram.org/bot${bot_token}/";
-	echo "[>+]RAW sendPhoto?chat_id=${dest} (@${file})" >&2;
-	curl -s "${apiurl}sendPhoto?" -F "chat_id=${dest}" -F "caption=${caption}" -F "photo=@${file}" >/dev/null;
+	raw_telegram "sendPhoto" "chat_id=${dest}" "caption=${caption}" "photo=@${file}" > /dev/null;
 }
 
 function send_telegram {
 	dest=$1;
-	message=$2;
+	message=" $2"; # avoids issues with "^@"
 	dpreview=$3;
 	if [ "$dpreview" != "true" ]
 	then
 		dpreview="false";
 	fi;
-	raw_telegram "sendMessage?chat_id=${dest}&disable_web_page_preview=${dpreview}" "text=$message" >/dev/null
+	raw_telegram "sendMessage" "chat_id=${dest}" "disable_web_page_preview=${dpreview}" "text=${message}" >/dev/null
 }
 
 function bot {
@@ -115,7 +125,7 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		msgid=$(echo "$packet" | jq -c -r -M ".message.message_id" | sed 's/\n//g');
-		raw_telegram "sendMessage?chat_id=${dest}&reply_to_message_id=${msgid}&text=Apologize,%20now." "reply_markup={\"keyboard\":[[\"I am terribly sorry, I'll never say words like that again.\"]],\"selective\":true,\"one_time_keyboard\":true}"&
+		raw_telegram "sendMessage" "chat_id=${dest}" "reply_to_message_id=${msgid}" "text=Apologize, now." "reply_markup={\"keyboard\":[[\"I am terribly sorry, I'll never say words like that again.\"]],\"selective\":true,\"one_time_keyboard\":true}" >/dev/null &
 	fi;
 	echo "$message" | grep -i "say my name";
 	if [ $? -eq 0 ];
@@ -141,7 +151,7 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.1 xkcd!!!\n\n";
+		tmp+="v1.4.2 xkcd!!!\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
@@ -155,7 +165,7 @@ function bot {
 		tmp+="Note2: This bot is multithreaded.\n";
 		tmp+="Note3: This bot knows nerdz.\n";
 		tmp=$(echo -e "${tmp}");
-		send_telegram "$dest" "${tmp}";
+		send_telegram "$dest" "$tmp";
 		return;
 	fi;
 	echo "$message" | grep -iP "^/time(@${bot_username})?$";
@@ -193,7 +203,7 @@ function bot {
 		then
 			if [ "$(which tor-resolve)" = "" ];
 			then
-				echo "[-]tor-resolve not found in path (tor suite).";
+				echo "tor-resolve not found in path (tor suite).";
 				return;
 			else
 				domain=$(echo "$message" | grep --color=never -ioP "([a-zA-Z0-9._-]+\.)[a-z-A-Z]{2,11}$");
@@ -307,6 +317,7 @@ bot_self=$(raw_telegram "getMe");
 if [ "$(echo "$bot_self" | jq -c -r -M ".ok")" = "false" ];
 then
 	echo "Something went wrong during 'getMe'..";
+	echo "[>]RAW: $bot_self";
 	exit 1;
 fi;
 bot_username=$(echo "$bot_self" | jq -c -r -M ".result.username");
@@ -316,13 +327,13 @@ echo "Bot: @${bot_username}";
 while read -r line;
 do
 	#echo $line; #debug
-	packet=$(echo "$line" | jq -c -r -M "[.message.from.id,.message.chat.id,.message.text]");
+	packet=$(echo "$line" | jq -c -r -M "[.message.from.username,.message.from.id,.message.chat.id,.message.text]");
 	echo "";
 	echo "$packet";
-	message=$(echo "$packet" | jq -r -M ".[2]" | sed 's/\\n/ /g' | tr "\n" " " | sed -e 's/[[:space:]]*$//');
+	message=$(echo "$packet" | jq -r -M ".[3]" | sed 's/\\n/ /g' | tr "\n" " " | sed -e 's/[[:space:]]*$//');
 	echo "Message: $message";
-	user=$(echo "$packet" | jq -r -M ".[0]");
-	chat=$(echo "$packet" | jq -r -M ".[1]");
+	user=$(echo "$packet" | jq -r -M ".[1]");
+	chat=$(echo "$packet" | jq -r -M ".[2]");
 	echo -n "User: $user";
 	if [ "$user" = "$chat" ];
 	then
