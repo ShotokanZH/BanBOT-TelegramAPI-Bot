@@ -65,13 +65,13 @@ function raw_telegram {
 	x=true;
 	for i in "$@";
 	do
-		i=${i//\"/\\\"}; #addslash
+		i=${i//\'/\'\"\'\"\'}; # ' to '"'"'
 		if [ "$x" = "true" ];
 		then
 			x=false;
-			tmpcurl+="curl -s \"${apiurl}${i}\"";
+			tmpcurl+="curl --retry 10 -s '${apiurl}${i}'";
 		else
-			tmpcurl+=" -F \"${i}\"";
+			tmpcurl+=" -F '${i}'";
 		fi;
 	done;
 	#echo "${tmpcurl}" >&2; #debug
@@ -151,13 +151,14 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.2 xkcd!!!\n\n";
+		tmp+="v1.4.3 say!!!\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
 		tmp+="/random - Sarcastic responses\n";
 		tmp+="/isnerdzup - Checks www.nerdz.eu\n";
 		tmp+="/ping IP - Pings the IP or hostname\n";
+		tmp+="/say words - Says something.\n";
 		tmp+="/whoami - Print user infos (no phone)\n";
 		tmp+="/xkcd - Random xkcd or specified id\n";
 		tmp+="\n"; #separator
@@ -225,6 +226,13 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "Usage: /ping IP (or hostname)";
+		return;
+	fi;
+	echo "$message" | grep -iP "^/say(@${bot_username})? .*$";
+	if [ $? -eq 0 ];
+	then
+		tmp=$(echo "$message" | grep --color=never -ioP "^/say(@${bot_username})? \K.*$");
+		send_telegram "$dest" "$tmp";
 		return;
 	fi;
 	echo "$message" | grep -iP "^/whoami(@${bot_username})?$";
