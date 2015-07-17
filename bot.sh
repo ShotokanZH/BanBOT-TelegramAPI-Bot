@@ -82,7 +82,7 @@ function send_photo {
 	dest="$1";
 	file="$2";
 	caption="$3";
-	raw_telegram "sendPhoto" "chat_id=${dest}" "caption=${caption}" "photo=@${file}" > /dev/null;
+	raw_telegram "sendPhoto" "chat_id=${dest}" "caption=${caption}" "photo=@${file}";
 }
 
 function send_telegram {
@@ -298,8 +298,13 @@ function bot {
 					alt=$(echo "$data" | jq -c -r -M ".[2]");
 					curl -s "${url}" > "${tmpf}";
 					du -h "${tmpf}";
-					send_photo "$dest" "$tmpf" "[${id_img}/${max}] ${title}";
-					send_telegram "$dest" "<xkcd>${alt}</xkcd>";
+					send_photo "$dest" "$tmpf" "[${id_img}/${max}] ${title}" | jq -r -M "[.ok]" | grep "false";
+					if [ $? -eq 0 ];
+					then
+						send_telegram "$dest" "Error while retrieving comic #${id_img} image";
+					else
+						send_telegram "$dest" "<xkcd>${alt}</xkcd>";
+					fi;
 					rm "$tmpf";
 				else
 					send_telegram "$dest" "Error while retrieving comic #${id_img} data";
