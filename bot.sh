@@ -141,17 +141,63 @@ function bot {
 		send_telegram "$dest" "Shrek is life." &
 	fi;
 	#
-	#COMMANDS
+	#COMMANDS & PSEUDO-COMMANDS
 	#
 	#Commands will work on the L1 thread, without the need of spawning another thread.
 	#After the (un)?successful execution of the command, L1 thread will die without running other commands.
 	#No L2 threads are created.
 	#
+	#Pseudo-commands just don't begin with "/"
+	#
+
+	#
+	#PSEUDO-COMMANDS
+	#
+	echo "$message" | grep -iP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+";
+	if [ $? -eq 0 ];
+	then
+		tmp=$(get_mutex "${Amutex[nerdz]}");
+		if [ "$tmp" = "busy" ];
+		then
+			send_telegram "$dest" "I'm busy..";
+		else
+			tmp=$(echo "$message" | grep --color=never -ioP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+" | grep --color=never -ioP "[a-zA-Z0-9._+-]+[.:][0-9]+");
+			if [ "$(which phantomjs)" = "" ];
+			then
+				echo "[-]PhantomJS not in \$PATH";
+			else
+				send_telegram "$dest" "Loading nerdz.eu/${tmp} ...";
+				tmpf=$(mktemp --suffix ".tbot.png");
+				phantomjs screenshot.js "http://www.nerdz.eu/${tmp}" "$tmpf" "postlist" '{"height":-40,"width":10}';
+				send_photo "$dest" "$tmpf" | jq -r -M "[.ok]" | grep "false";
+				if [ $? -eq 0 ];
+				then
+					send_telegram "$dest" "Error while retrieving $tmp";
+				fi;
+				rm "$tmpf";
+			fi;
+			release_mutex "${Amutex[nerdz]}";
+		fi;
+		return;
+	fi;
+	#
+	#FILTER
+	#
+	echo "$message" | grep -iP "^/.+$";
+	if [ $? -ne 0 ];
+	then
+		#echo -n "$message" | hd; #debug
+		echo "No commands.";
+		return;
+	fi;
+	#
+	#COMMANDS
+	#
 	echo "$message" | grep -iP "^/help(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.3 say!!!\n\n";
+		tmp+="v1.4.4 ...things!!!\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
@@ -165,8 +211,10 @@ function bot {
 		tmp+="Note: This bot loves boobs and hates RBUY.\n";
 		tmp+="Note2: This bot is multithreaded.\n";
 		tmp+="Note3: This bot knows nerdz.\n";
+		tmp+="\n"; #separator
+		tmp+="This bot is opensource: https://github.com/ShotokanZH/BanBOT-TelegramAPI-Bot/\n";
 		tmp=$(echo -e "${tmp}");
-		send_telegram "$dest" "$tmp";
+		send_telegram "$dest" "$tmp" "true";
 		return;
 	fi;
 	echo "$message" | grep -iP "^/time(@${bot_username})?$";
@@ -240,33 +288,6 @@ function bot {
 	then
 		tmp=$(echo "$packet" | jq -M "[.message.from.id,.message.from.first_name,.message.from.last_name,.message.from.username]");
 		send_telegram "$dest" "$tmp";
-		return;
-	fi;
-	echo "$message" | grep -iP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+";
-	if [ $? -eq 0 ];
-	then
-		tmp=$(get_mutex "${Amutex[nerdz]}");
-		if [ "$tmp" = "busy" ];
-		then
-			send_telegram "$dest" "I'm busy..";
-		else
-			tmp=$(echo "$message" | grep --color=never -ioP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+" | grep --color=never -ioP "[a-zA-Z0-9._+-]+[.:][0-9]+");
-			if [ "$(which phantomjs)" = "" ];
-			then
-				echo "[-]PhantomJS not in \$PATH";
-			else
-				send_telegram "$dest" "Loading nerdz.eu/${tmp} ...";
-				tmpf=$(mktemp --suffix ".tbot.png");
-				phantomjs screenshot.js "http://www.nerdz.eu/${tmp}" "$tmpf" "postlist" '{"height":-40,"width":10}';
-				send_photo "$dest" "$tmpf" | jq -r -M "[.ok]" | grep "false";
-				if [ $? -eq 0 ];
-				then
-					send_telegram "$dest" "Error while retrieving $tmp";
-				fi;
-				rm "$tmpf";
-			fi;
-			release_mutex "${Amutex[nerdz]}";
-		fi;
 		return;
 	fi;
 	echo "$message" | grep -iP "^/xkcd(@${bot_username})?( \d+)?$"
