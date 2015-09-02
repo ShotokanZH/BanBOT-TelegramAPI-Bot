@@ -121,12 +121,22 @@ function bot {
 	then
 		send_telegram "$dest" "Boobs are soft." &
 	fi;
+	#
+	sorrymsg="I am terribly sorry, I'll never say words like that again.";
 	echo "$message" | grep -iP "(^|[^a-zA-Z])ruby([^a-zA-Z]|$)";
 	if [ $? -eq 0 ];
 	then
 		msgid=$(echo "$packet" | jq -c -r -M ".message.message_id" | sed 's/\n//g');
-		raw_telegram "sendMessage" "chat_id=${dest}" "reply_to_message_id=${msgid}" "text=Apologize, now." "reply_markup={\"keyboard\":[[\"I am terribly sorry, I'll never say words like that again.\"]],\"selective\":true,\"one_time_keyboard\":true}" >/dev/null &
+		raw_telegram "sendMessage" "chat_id=${dest}" "reply_to_message_id=${msgid}" "text=Apologize, now." "reply_markup={\"keyboard\":[[\"${sorrymsg}\"]],\"selective\":true,\"one_time_keyboard\":true}" >/dev/null &
 	fi;
+	echo "$message" | grep -iP "^${sorrymsg}$";
+	if [ $? -eq 0 ];
+	then
+		msgid=$(echo "$packet" | jq -c -r -M ".message.message_id" | sed 's/\n//g');
+		raw_telegram "sendMessage" "chat_id=${dest}" "reply_to_message_id=${msgid}" "text=Good. Don't do that again." "reply_markup={\"hide_keyboard\":true,\"selective\":true}" >/dev/null &
+	fi;
+	unset sorrymsg;
+	#
 	echo "$message" | grep -i "say my name";
 	if [ $? -eq 0 ];
 	then
@@ -197,7 +207,7 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.4 ...things!!!\n\n";
+		tmp+="v1.4.5 ...I fixed it but don't say THAT.\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
