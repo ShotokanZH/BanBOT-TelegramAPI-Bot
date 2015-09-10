@@ -109,7 +109,7 @@ function bot {
 
 	packet=$4;
 
-	export GREP_OPTIONS='--color=always';
+	export GREP_OPTIONS='--color=auto';
 
 	echo "$message" | grep -iP "(^|[^a-zA-Z])tette([^a-zA-Z]|$)" ;
 	if [ $? -eq 0 ];
@@ -171,7 +171,7 @@ function bot {
 		then
 			send_telegram "$dest" "I'm busy..";
 		else
-			tmp=$(echo "$message" | grep --color=never -ioP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+" | grep --color=never -ioP "[a-zA-Z0-9._+-]+[.:][0-9]+");
+			tmp=$(echo "$message" | grep -ioP "(www|mobile)\.nerdz\.eu/[a-zA-Z0-9._+-]+[.:][0-9]+" | grep -ioP "[a-zA-Z0-9._+-]+[.:][0-9]+");
 			if [ "$(which phantomjs)" = "" ];
 			then
 				echo "[-]PhantomJS not in \$PATH";
@@ -207,7 +207,7 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.5 ...I fixed it but don't say THAT.\n\n";
+		tmp+="v1.4.6 Some (grep) optimizations.\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
@@ -247,7 +247,7 @@ function bot {
 		then
 			send_telegram "$dest" "I'm busy..";
 		else
-			tmp=$(nmap -p 820 www.nerdz.eu| grep --color=never "hosts\? up");
+			tmp=$(nmap -p 80 www.nerdz.eu| grep "hosts\? up");
 			send_telegram "$dest" "${tmp}";
 			release_mutex "${Amutex[nmap]}";
 		fi;
@@ -256,7 +256,7 @@ function bot {
 	echo "$message" | grep -iP "^/ping(@${bot_username})? (([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}|([a-zA-Z0-9._-]+\.)[a-z-A-Z]{2,11})$";
 	if [ $? -eq 0 ];
 	then
-		ip=$(echo "$message" | grep --color=never -ioP "([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$");
+		ip=$(echo "$message" | grep -ioP "([12]?[0-9]{1,2}\.){3}[12]?[0-9]{1,2}$");
 		tmp="";
 		if [ "$ip" = "" ];
 		then
@@ -265,7 +265,7 @@ function bot {
 				echo "tor-resolve not found in path (tor suite).";
 				return;
 			else
-				domain=$(echo "$message" | grep --color=never -ioP "([a-zA-Z0-9._-]+\.)[a-z-A-Z]{2,11}$");
+				domain=$(echo "$message" | grep -ioP "([a-zA-Z0-9._-]+\.)[a-z-A-Z]{2,11}$");
 				ip=$(tor-resolve "$domain" 2>/dev/null);
 				if [ "$ip" = "" ];
 				then
@@ -289,7 +289,7 @@ function bot {
 	echo "$message" | grep -iP "^/say(@${bot_username})? .*$";
 	if [ $? -eq 0 ];
 	then
-		tmp=$(echo "$message" | grep --color=never -ioP "^/say(@${bot_username})? \K.*$");
+		tmp=$(echo "$message" | grep -ioP "^/say(@${bot_username})? \K.*$");
 		send_telegram "$dest" "$tmp";
 		return;
 	fi;
@@ -312,7 +312,7 @@ function bot {
 			if [ $? -eq 0 ];
 			then
 				echo -n "[>]Max: ${max} ";
-				tmp=$(echo "$message" | grep -ioP --color=never "\d+$");
+				tmp=$(echo "$message" | grep -ioP "\d+$");
 				if [ $? -eq 0 ] && [ "$tmp" -le "$max" ] && [ "$tmp" -ge "1" ];
 				then
 					id_img=$tmp;
