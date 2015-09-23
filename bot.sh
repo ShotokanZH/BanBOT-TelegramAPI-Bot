@@ -93,7 +93,7 @@ function send_telegram {
 	then
 		dpreview="false";
 	fi;
-	raw_telegram "sendMessage" "chat_id=${dest}" "disable_web_page_preview=${dpreview}" "text=${message}" >/dev/null
+	raw_telegram "sendMessage" "chat_id=${dest}" "parse_mode=Markdown" "disable_web_page_preview=${dpreview}" "text=${message}" >/dev/null
 }
 
 function bot {
@@ -176,13 +176,13 @@ function bot {
 			then
 				echo "[-]PhantomJS not in \$PATH";
 			else
-				send_telegram "$dest" "Loading nerdz.eu/${tmp} ...";
+				raw_telegram "sendChatAction" "chat_id=$dest" "action=upload_photo";
 				tmpf=$(mktemp --suffix ".tbot.png");
 				phantomjs screenshot.js "http://www.nerdz.eu/${tmp}" "$tmpf" "postlist" '{"height":-40,"width":10}';
 				send_photo "$dest" "$tmpf" | jq -r -M "[.ok]" | grep "false";
 				if [ $? -eq 0 ];
 				then
-					send_telegram "$dest" "Error while retrieving $tmp";
+					send_telegram "$dest" "Error while retrieving [$tmp](http://www.nerdz.eu/$tmp)";
 				fi;
 				rm "$tmpf";
 			fi;
@@ -207,7 +207,7 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.6 Some (grep) optimizations.\n\n";
+		tmp+="v1.4.7 Actions!!\n\n";
 		tmp+="Usage:\n";
 		tmp+="/help - This.\n";
 		tmp+="/time - Return current GMT+1(+DST) time\n";
@@ -247,6 +247,7 @@ function bot {
 		then
 			send_telegram "$dest" "I'm busy..";
 		else
+			raw_telegram "sendChatAction" "chat_id=$dest" "action=typing";
 			tmp=$(nmap -p 80 www.nerdz.eu| grep "hosts\? up");
 			send_telegram "$dest" "${tmp}";
 			release_mutex "${Amutex[nmap]}";
@@ -308,6 +309,7 @@ function bot {
 		then
 			send_telegram "$dest" "I'm busy..";
 		else
+			raw_telegram "sendChatAction" "chat_id=$dest" "action=upload_photo";
 			max=$(curl -s "http://xkcd.com/info.0.json" | jq -c -r -M ".num" | grep -v "null");
 			if [ $? -eq 0 ];
 			then
