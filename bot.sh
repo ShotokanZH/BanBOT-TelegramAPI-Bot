@@ -16,7 +16,7 @@ fi;
 
 while true; do sleep 999; done > "$log_fifo" &
 
-mlist=(nmap nerdz xkcd);
+mlist=(nmap nerdz xkcd torrent);
 declare -A Amutex;
 for i in "${mlist[@]}";
 do
@@ -206,24 +206,25 @@ function bot {
 	echo "$message" | grep -iP "^/help(@${bot_username})?$";
 	if [ $? -eq 0 ];
 	then
-		tmp="@hBanBOT by @ShotokanZH\n";
-		tmp+="v1.4.7 Actions!!\n\n";
-		tmp+="Usage:\n";
-		tmp+="/help - This.\n";
-		tmp+="/time - Return current GMT+1(+DST) time\n";
-		tmp+="/random - Sarcastic responses\n";
-		tmp+="/isnerdzup - Checks www.nerdz.eu\n";
-		tmp+="/ping IP - Pings the IP or hostname\n";
-		tmp+="/say words - Says something.\n";
-		tmp+="/whoami - Print user infos (no phone)\n";
-		tmp+="/xkcd - Random xkcd or specified id\n";
-		tmp+="\n"; #separator
-		tmp+="Note: This bot loves boobs and hates RBUY.\n";
-		tmp+="Note2: This bot is multithreaded.\n";
-		tmp+="Note3: This bot knows nerdz.\n";
-		tmp+="\n"; #separator
-		tmp+="This bot is opensource: https://github.com/ShotokanZH/BanBOT-TelegramAPI-Bot/\n";
-		tmp=$(echo -e "${tmp}");
+		tmp="@hBanBOT by @ShotokanZH"$'\n';
+		tmp+="v1.4.9 ...Torrent & random fixing"$'\n';
+		tmp+=$'\n'; #separator
+		tmp+="Usage:"$'\n';
+		tmp+="/help - This."$'\n';
+		tmp+="/isnerdzup - Check www.nerdz.eu"$'\n';
+		tmp+="/ping IP - Ping the IP or hostname"$'\n';
+		tmp+="/random - Sarcastic responses"$'\n';
+		tmp+="/say words - Say something"$'\n';
+		tmp+="/time - Return current GMT+1(+DST) time"$'\n';
+		tmp+="/torrent words - Search for VERIFIED torrents"$'\n';
+		tmp+="/whoami - Print user infos (no phone)"$'\n';
+		tmp+="/xkcd - Random xkcd or specified id"$'\n';
+		tmp+=$'\n'; #separator
+		tmp+="Note: This bot loves boobs and hates RBUY."$'\n';
+		tmp+="Note2: This bot is multithreaded."$'\n';
+		tmp+="Note3: This bot knows nerdz."$'\n';
+		tmp+=$'\n'; #separator
+		tmp+="This bot is opensource ([github](https://github.com/ShotokanZH/BanBOT-TelegramAPI-Bot/))"$'\n';
 		send_telegram "$dest" "$tmp" "true";
 		return;
 	fi;
@@ -347,6 +348,67 @@ function bot {
 			fi;
 			release_mutex "${Amutex[xkcd]}";
 		fi;
+		return;
+	fi;
+	echo "$message" | grep -iP "^/torrent(@${bot_username})? [a-zA-Z0-9.,'\" _-]+$";
+	if [ $? -eq 0 ];
+	then
+		tmp=$(get_mutex "${Amutex[torrent]}");
+		if [ "$tmp" = "busy" ];
+		then
+			send_telegram "$dest" "I'm busy..";
+		else
+			if [ "$(which torify)" = "" ];	#I don't trust you guys.
+			then
+				echo "[-] torify not found in \$PATH";
+			else
+				raw_telegram "sendChatAction" "chat_id=$dest" "action=typing";
+				searchq=$(echo "$message" | grep -ioP "^/torrent(@${bot_username})? \K.*");
+				tmp=$(torify curl --retry 10 -s "https://kat.cr/usearch/${searchq} seeds:1 verified:1/?field=seeders&sorder=desc&rss=1" 2>/dev/null | gunzip);
+				BIFS="$IFS";
+				IFS=$'\n';
+				titles=$(echo "$tmp" | grep -ioP "<torrent:fileName>\K[^<]+" | tr '[(' '<' | tr ')]' '>');
+				titles=($titles);
+				urls=$(echo "$tmp" | grep -ioP "<enclosure url=\"\K[^\"]+" | tr '[(' '<' | tr ')]' '>');
+				urls=($urls);
+				seeds=$(echo "$tmp" | grep -ioP "<torrent:seeds>\K[0-9]+");
+				seeds=($seeds);
+				peers=$(echo "$tmp" | grep -ioP "<torrent:peers>\K[0-9]+");
+				peers=($peers);
+				IFS="$BIFS";
+				x=0;
+				tor="";
+				min=10;
+				if [ "$min" -gt "${#seeds[@]}" ];
+				then
+					min=${#seeds[@]};
+				fi;
+				if [ "$min" -eq "0" ];
+				then
+					tor="*No verified torrents found*"$'\n';
+				else
+					if [ "$min" -eq "1" ];
+					then
+						tor="*One torrent found for: '${searchq}'*"$'\n'
+					else
+						tor="*$min torrents found for: '${searchq}'*"$'\n'
+					fi;
+					while [ "$x" -lt "$min" ];
+					do
+						tor+="(${seeds[$x]}:${peers[$x]}) [${titles[$x]}](${urls[$x]})"$'\n';
+						x=$(( x + 1 ));
+					done;
+				fi;
+				send_telegram "$dest" "$tor";
+			fi;
+			release_mutex "${Amutex[torrent]}";
+		fi;
+		return;
+	fi;
+	echo "$message" | grep -iP "^/torrent(@${bot_username})?( |$)";
+	if [ $? -eq 0 ];
+	then
+		send_telegram "$dest" "Usage: /torrent string";
 		return;
 	fi;
 	#echo -n "$message" | hd; #debug
