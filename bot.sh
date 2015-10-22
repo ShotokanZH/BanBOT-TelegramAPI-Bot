@@ -89,11 +89,17 @@ function send_telegram {
 	dest=$1;
 	message=" $2"; # avoids issues with "^@"
 	dpreview=$3;
-	if [ "$dpreview" != "true" ]
+	if [ "$dpreview" != "true" ];
 	then
 		dpreview="false";
 	fi;
-	raw_telegram "sendMessage" "chat_id=${dest}" "parse_mode=Markdown" "disable_web_page_preview=${dpreview}" "text=${message}" >/dev/null
+	markdown=$4;
+	if [ "$markdown" != "true" ];
+	then
+		raw_telegram "sendMessage" "chat_id=${dest}" "disable_web_page_preview=${dpreview}" "text=${message}" >/dev/null
+	else
+		raw_telegram "sendMessage" "chat_id=${dest}" "parse_mode=Markdown" "disable_web_page_preview=${dpreview}" "text=${message}" >/dev/null
+	fi;
 }
 
 function bot {
@@ -182,7 +188,7 @@ function bot {
 				send_photo "$dest" "$tmpf" | jq -r -M "[.ok]" | grep "false";
 				if [ $? -eq 0 ];
 				then
-					send_telegram "$dest" "Error while retrieving [$tmp](http://www.nerdz.eu/$tmp)";
+					send_telegram "$dest" "Error while retrieving [$tmp](http://www.nerdz.eu/$tmp)" "true" "true";
 				fi;
 				rm "$tmpf";
 			fi;
@@ -207,25 +213,28 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH"$'\n';
-		tmp+="v1.4.9 ...Torrent & random fixing"$'\n';
+		tmp+="_v1.5.0 ...IT'S BANBOT TIME_"$'\n';
 		tmp+=$'\n'; #separator
-		tmp+="Usage:"$'\n';
+		tmp+="*Usage:*"$'\n';
 		tmp+="/help - This."$'\n';
 		tmp+="/isnerdzup - Check www.nerdz.eu"$'\n';
+		tmp+="/kick id - *Kick user ID from the group*"$'\n';
 		tmp+="/ping IP - Ping the IP or hostname"$'\n';
 		tmp+="/random - Sarcastic responses"$'\n';
 		tmp+="/say words - Say something"$'\n';
 		tmp+="/time - Return current GMT+1(+DST) time"$'\n';
 		tmp+="/torrent words - Search for VERIFIED torrents"$'\n';
 		tmp+="/whoami - Print user infos (no phone)"$'\n';
+		tmp+="/whoishere - Print user list (group only)"$'\n';
 		tmp+="/xkcd - Random xkcd or specified id"$'\n';
 		tmp+=$'\n'; #separator
 		tmp+="Note: This bot loves boobs and hates RBUY."$'\n';
 		tmp+="Note2: This bot is multithreaded."$'\n';
 		tmp+="Note3: This bot knows nerdz."$'\n';
+		tmp+="Note4: *Bold* commands require mod||admin level."$'\n';
 		tmp+=$'\n'; #separator
 		tmp+="This bot is opensource ([github](https://github.com/ShotokanZH/BanBOT-TelegramAPI-Bot/))"$'\n';
-		send_telegram "$dest" "$tmp" "true";
+		send_telegram "$dest" "$tmp" "true" "true";
 		return;
 	fi;
 	echo "$message" | grep -iP "^/time(@${bot_username})?$";
@@ -278,7 +287,7 @@ function bot {
 				tmp="${domain} => ${ip}${newline}";
 			fi;
 		fi;
-		tmp+=$(ping -c 1 "$ip");
+		tmp+="$(ping -c 1 "$ip")";
 		send_telegram "$dest" "$tmp" "true";
 		return;
 	fi;
@@ -341,7 +350,7 @@ function bot {
 					fi;
 					rm "$tmpf";
 				else
-					send_telegram "$dest" "Error while retrieving comic #${id_img} data";
+					send_telegram "$dest" "*Error while retrieving comic #${id_img} data*" "true" "true";
 				fi;
 			else
 				send_telegram "$dest" "Error while retrieving max id";
@@ -399,7 +408,7 @@ function bot {
 						x=$(( x + 1 ));
 					done;
 				fi;
-				send_telegram "$dest" "$tor";
+				send_telegram "$dest" "$tor" "true" "true";
 			fi;
 			release_mutex "${Amutex[torrent]}";
 		fi;
@@ -409,6 +418,100 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "Usage: /torrent string";
+		return;
+	fi;
+	#
+	#"GOD MODE" commands
+	#
+	#commands that requires a real user acting as a "bot" via telegram-cli
+	#To start it run:
+	#tg/bin/telegram-cli -k public.key -R --json -C -P 4567 -D
+	#
+	echo "$message" | grep -iP "^/whoishere(@${bot_username})?$";
+	if [ $? -eq 0 ];
+	then
+		if [ "$dest" = "$user" ];
+		then
+			send_telegram "$dest" "*You're not in a group chat*" "true" "true";
+		else
+			cid=$(echo "$dest" | grep -oP "[0-9]+");
+			tmp=$(echo "chat_info chat#${cid}"| nc 127.0.0.1 4567 -q 1 | grep "^{" );
+			#echo "$tmp"; #debug
+			tmp=$(echo "$tmp" | jq -c -r -M "[.members[].username],[.members[].print_name],[.members[].id]");
+			tmp=( $tmp );
+			t_users=( $(echo "${tmp[0]}" | jq -M -r ".[]") );
+			t_displ=( $(echo "${tmp[1]}" | jq -M -r ".[]") );
+			t_id=( $(echo "${tmp[2]}" | jq -M -r ".[]") );
+			tor="User list for chat #${cid} :"$'\n\n';
+			x=0;
+			for i in "${t_id[@]}";
+			do
+				tor+="$i [at]${t_users[$x]} ${t_displ[$x]}"$'\n';
+				x=$(( x  + 1 ));
+			done;
+			send_telegram "$dest" "$tor";
+		fi;
+		return;
+	fi;
+	echo "$message" | grep -iP "^/kick(@${bot_username})? [1-9][0-9]+$";
+	if [ $? -eq 0 ];
+	then
+		if [ "$user" = "$dest" ];
+		then
+			send_telegram "$dest" "*Not in a group chat.*" "true" "true";
+		else
+			if [ -f "admin" ];	#id list
+			then
+				cid=$(echo "$dest" | grep -oP "[0-9]+");
+				tokick=$(echo "$message" | grep -ioP "[0-9]+$");
+				mod=( $(cat mod admin | grep -v "#") );
+				ok="false";
+				kick="true";
+				for i in "${mod[@]}";
+				do
+					if [ "$i" = "$user" ];
+					then
+						ok="true";
+					fi;
+					if [ "$i" = "$tokick" ];
+					then
+						kick="false";
+					fi;
+				done;
+				if [ "$ok" = "false" ];
+				then
+					send_telegram "$dest" "*Not a mod.*" "true" "true";
+				else
+					cat "admin" | grep -v "#" | grep "^${user}$" >/dev/null;
+					if [ $? -eq 0 ];
+					then
+						echo "[+]Admin";
+						kick="true";
+					fi;
+					if [ "$kick" = "true" ];
+					then
+						raw_telegram "sendChatAction" "chat_id=$dest" "action=typing";
+						echo "chat_del_user chat#${cid} user#${tokick}" | nc 127.0.0.1 4567 -q 1 | grep "SUCCESS";
+						if [ $? -ne 0 ];
+						then
+							send_telegram "$dest" "*Something went wrong..*" "true" "true";
+						else
+							send_telegram "$dest" "*Pew pew pew.*" "true" "true";
+						fi;
+					else
+						send_telegram "$dest" "*Can't kick an admin.*" "true" "true";
+					fi;
+				fi;
+			else
+				send_telegram "$dest" "*No admin found*" "true" "true";
+			fi;
+		fi;
+		return;
+	fi;
+	echo "$message" | grep -iP "^/kick(@${bot_username})?( |$)";
+	if [ $? -eq 0 ];
+	then
+		send_telegram "$dest" "Usage: /kick userid";
 		return;
 	fi;
 	#echo -n "$message" | hd; #debug
