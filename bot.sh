@@ -16,7 +16,7 @@ fi;
 
 while true; do sleep 999; done > "$log_fifo" &
 
-mlist=(nmap nerdz xkcd torrent);
+mlist=(nmap nerdz xkcd torrent exploit);
 declare -A Amutex;
 for i in "${mlist[@]}";
 do
@@ -213,9 +213,10 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH"$'\n';
-		tmp+="_v1.5.0 ...IT'S BANBOT TIME_"$'\n';
+		tmp+="_v1.5.1 ...Exploit??_"$'\n';
 		tmp+=$'\n'; #separator
 		tmp+="*Usage:*"$'\n';
+		tmp+="/exploit words - Search for exploits (top 10)"$'\n';
 		tmp+="/help - This."$'\n';
 		tmp+="/isnerdzup - Check www.nerdz.eu"$'\n';
 		tmp+="/kick id - *Kick user ID from the group*"$'\n';
@@ -223,7 +224,7 @@ function bot {
 		tmp+="/random - Sarcastic responses"$'\n';
 		tmp+="/say words - Say something"$'\n';
 		tmp+="/time - Return current GMT+1(+DST) time"$'\n';
-		tmp+="/torrent words - Search for VERIFIED torrents"$'\n';
+		tmp+="/torrent words - Search for VERIFIED torrents (top 10)"$'\n';
 		tmp+="/whoami - Print user infos (no phone)"$'\n';
 		tmp+="/whoishere - Print user list (group only)"$'\n';
 		tmp+="/xkcd - Random xkcd or specified id"$'\n';
@@ -418,6 +419,59 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "Usage: /torrent string";
+		return;
+	fi;
+	echo "$message" | grep -iP "^/exploit(@${bot_username})? [a-zA-Z0-9.,'\" _-]+$";
+	if [ $? -eq 0 ];
+	then
+		tmp=$(get_mutex "${Amutex[exploit]}");
+		if [ "$tmp" = "busy" ];
+		then
+			send_telegram "$dest" "I'm busy..";
+		else
+			if [ "$(which torify)" = "" ];	#I don't trust you guys.
+			then
+				echo "[-] torify not found in \$PATH";
+			else
+				raw_telegram "sendChatAction" "chat_id=$dest" "action=typing";
+				searchq=$(echo "$message" | grep -ioP "^/exploit(@${bot_username})? \K.*");
+				tmp=$(torify curl --retry 10 -s "https://www.intelligentexploit.com/api/search-exploit?name=$(echo "${searchq}"| sed 's/ /%20/g')" 2>/dev/null);
+				tor=" Exploits found for \"${searchq}\"*"$'\n\n';
+				x=0;
+				stmp="null";
+				if [ "$tmp" != "" ];
+				then
+					stmp=true;
+				fi;
+				while [ "$stmp" != "null" ];
+				do
+					if [ $x -lt 10 ];
+					then
+						stmp=$(echo "$tmp" | jq -r -M -c ".[$x]");
+					else
+						stmp="null";
+					fi;
+					x=$(( x + 1 ));
+					if [ "$stmp" != "null" ];
+					then
+						name=$(echo "$stmp" | jq -r -M -c ".name" | tr '[(' '<' | tr ')]' '>');
+						id=$(echo "$stmp" | jq -r -M -c ".id");
+						date=$(echo "$stmp" | jq -r -M -c ".date");
+						tor+="$date [$name](https://www.intelligentexploit.com/view-details.html?id=$id)"$'\n';
+					fi;
+				done;
+				x=$(( x - 1 ));
+				tor="*${x}${tor}";
+				send_telegram "$dest" "$tor" "true" "true";
+			fi;
+			release_mutex "${Amutex[exploit]}";
+		fi;
+		return;
+	fi;
+	echo "$message" | grep -iP "^/exploit(@${bot_username})?( |$)";
+	if [ $? -eq 0 ];
+	then
+		send_telegram "$dest" "Usage: /exploit string";
 		return;
 	fi;
 	#
