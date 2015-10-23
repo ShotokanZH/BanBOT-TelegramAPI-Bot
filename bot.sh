@@ -443,14 +443,9 @@ function bot {
 				then
 					stmp=true;
 				fi;
-				while [ "$stmp" != "null" ];
+				while [ "$stmp" != "null" -a $x -lt 10 ];
 				do
-					if [ $x -lt 10 ];
-					then
-						stmp=$(echo "$tmp" | jq -r -M -c ".[$x]");
-					else
-						stmp="null";
-					fi;
+					stmp=$(echo "$tmp" | jq -r -M -c ".[$x]");
 					x=$(( x + 1 ));
 					if [ "$stmp" != "null" ];
 					then
