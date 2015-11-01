@@ -5,7 +5,7 @@ log="hook.log"
 #don't edit below!!
 update_url="https://api.telegram.org/bot${token}/getUpdates?timeout=${timeout}&offset=";
 offset=0;
-        
+
 while true;
 do              
         data=$(curl -s "${update_url}${offset}");
@@ -26,12 +26,12 @@ do
                                         if [ "$tmp" != "null" ];
                                         then
                                                 offset=$(echo "${tmp}" | jq -c -r -M ".update_id");
-                                                offset=$(printf "%.0f" "$offset");	#JQ can't handle int > 450'000'000
+                                                offset=$(printf "%.0f" "$offset");	#JQ can't handle int > 45'000'000
                                                 offset=$(( offset + 1 ));
                                                 echo "$tmp" >> "$log";
                                         fi;
                                 done;
                         fi;
                 fi;
-        fi;                                                                                               
+        fi;                        
 done;
