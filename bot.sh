@@ -213,7 +213,7 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		tmp="@hBanBOT by @ShotokanZH"$'\n';
-		tmp+="_v1.5.1 ...Exploit??_"$'\n';
+		tmp+="_v1.5.2 ...Export!_"$'\n';
 		tmp+=$'\n'; #separator
 		tmp+="*Usage:*"$'\n';
 		tmp+="/exploit words - Search for exploits (top 10)"$'\n';
