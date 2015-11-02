@@ -217,6 +217,7 @@ function bot {
 		tmp+=$'\n'; #separator
 		tmp+="*Usage:*"$'\n';
 		tmp+="/exploit words - Search for exploits (top 10)"$'\n';
+		tmp+="/exportlink - Generate new invite link for the chat"$'\n';
 		tmp+="/help - This."$'\n';
 		tmp+="/isnerdzup - Check www.nerdz.eu"$'\n';
 		tmp+="/kick id - *Kick user ID from the group*"$'\n';
@@ -491,18 +492,20 @@ function bot {
 			t_users=( $(echo "${tmp[0]}" | jq -M -r ".[]") );
 			t_displ=( $(echo "${tmp[1]}" | jq -M -r ".[]") );
 			t_id=( $(echo "${tmp[2]}" | jq -M -r ".[]") );
-			tor="User list for chat #${cid} :"$'\n\n';
+			tor="";
 			x=0;
 			for i in "${t_id[@]}";
 			do
-				tor+="$i [at]${t_users[$x]} ${t_displ[$x]}"$'\n';
+				tor+="${t_displ[$x]} [at]${t_users[$x]} /kick_$i"$'\n';
 				x=$(( x  + 1 ));
 			done;
+			tor=$(echo "$tor" | sort);
+			tor="User list for chat #${cid} :"$'\n'"$tor";
 			send_telegram "$dest" "$tor";
 		fi;
 		return;
 	fi;
-	echo "$message" | grep -iP "^/kick(@${bot_username})? [1-9][0-9]+$";
+	echo "$message" | grep -iP "^/kick(@${bot_username})?[ _][1-9][0-9]+$";
 	if [ $? -eq 0 ];
 	then
 		if [ "$user" = "$dest" ];
@@ -561,6 +564,25 @@ function bot {
 	if [ $? -eq 0 ];
 	then
 		send_telegram "$dest" "Usage: /kick userid";
+		return;
+	fi;
+	echo "$message" | grep -iP "^/exportlink(@${bot_username})?$";
+	if [ $? -eq 0 ];
+	then
+		if [ "$user" = "$dest" ];
+		then
+			send_telegram "$dest" "*Not in a group chat.*" "true" "true";
+		else
+			cid=$(echo "$dest" | grep -oP "[0-9]+");
+			raw_telegram "sendChatAction" "chat_id=$dest" "action=typing";
+			link=$(echo "export_chat_link chat#${cid}" | nc 127.0.0.1 4567 -q 1 | grep "{" | jq -c -r -M ".result");
+			if [ "$link" = "FAIL" ];
+			then
+				send_telegram "$dest" "*Bot is not admin.*" "true" "true";
+			else
+				send_telegram "$dest" "*New link: $link *" "true" "true";
+			fi;
+		fi;
 		return;
 	fi;
 	#echo -n "$message" | hd; #debug
